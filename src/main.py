@@ -112,7 +112,7 @@ class TransformerTrainer(pl.LightningModule):
         self.log("validation loss", val_loss)
 
         bleu_scores = []
-        for idx in range(0, len(src), 250):
+        for idx in range(len(src)):
             trg = self.clean_and_print_tokens(trg[idx], str(SpecialTokens.TRG))
             pred = self.clean_and_print_tokens(torch.argmax(logits[idx], dim=-1), str(SpecialTokens.TRG))
             bleu_scores.append(self.metric(trg.split(), pred.split()).item())
