@@ -107,7 +107,7 @@ class TransformerTrainer(pl.LightningModule):
         # logits.shape = [B x TRG_seq_len x TRG_vocab_size]
 
         ys = trg[:, 1:].reshape(-1)
-        val_loss = self.criterion(logits.reshape(-1, len(self.trg_vocab)), ys)
+        val_loss = self.criterion(logits.reshape(-1, len(self.trg_vocab)), ys).item()
 
         self.log("validation loss", val_loss)
 
