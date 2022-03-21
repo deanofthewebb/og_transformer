@@ -8,8 +8,10 @@ from layers.transformers import Transformer
 from torchtext.datasets import Multi30k, IWSLT2017
 from torchtext.data.utils import get_tokenizer
 from torchtext.vocab import build_vocab_from_iterator, Vocab
+from torchmetrics import BLEUScore
 from torch.utils.data import DataLoader
 import math as m
+import statistics
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 import wandb
 
@@ -51,6 +53,7 @@ class TransformerTrainer(pl.LightningModule):
         self.max_epochs = max_epochs
         self.lr = lr
         self.warmup_epochs = warmup_epochs
+        self.metric = BLEUScore()
 
         self.model = Transformer(
             src_vocab_len=len(self.src_vocab),
@@ -83,7 +86,8 @@ class TransformerTrainer(pl.LightningModule):
         loss = self.criterion(logits.reshape(-1, len(self.trg_vocab)), ys)
         
         self.log("training loss", loss)
-        self.log("learning rate", self.trainer.lightning_optimizers[0].param_groups[0]['lr'])
+
+        self.change_lr_in_optimizer()
 
         if batch_idx == 0:
             for idx in range(0, len(src), 200):
@@ -106,6 +110,8 @@ class TransformerTrainer(pl.LightningModule):
         val_loss = self.criterion(logits.reshape(-1, len(self.trg_vocab)), ys)
 
         self.log("validation loss", val_loss)
+
+        
         
 
         for idx in range(0, len(src), 250):
@@ -113,14 +119,33 @@ class TransformerTrainer(pl.LightningModule):
             print(" TRG:\t", self.clean_and_print_tokens(trg[idx], str(SpecialTokens.TRG)))
             print("PRED:\t", self.clean_and_print_tokens(torch.argmax(logits[idx], dim=-1), str(SpecialTokens.TRG)))
             print("-------")
+
+        bleu_scores = []
+        for idx in range(len(src)):
+            trg = self.clean_and_print_tokens(trg[idx], str(SpecialTokens.TRG))
+            pred = self.clean_and_print_tokens(torch.argmax(logits[idx], dim=-1), str(SpecialTokens.TRG))
+            bleu_scores.append(self.metric(trg.split(), pred.split()).item())
+        
+        mean_bleu = statistics.mean(bleu_scores)
+            
+
         print("Val Loss:", val_loss)
-        self.scheduler.step()
+        print("BLEU Score:", mean_bleu)
+        # self.scheduler.step()
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
-        self.scheduler = LinearWarmupCosineAnnealingLR(optimizer, warmup_epochs=MIN_EPOCHS, max_epochs=self.max_epochs)
+        # self.scheduler = LinearWarmupCosineAnnealingLR(optimizer, warmup_epochs=MIN_EPOCHS, max_epochs=self.max_epochs)
                         
-        return [optimizer], [self.scheduler]
+        return [optimizer]
+
+    # Google Transformers lr schedluer
+    def change_lr_in_optimizer(self):
+        min_arg1 = m.sqrt(1/(self.global_step + 1))
+        min_arg2 = self.global_step * (self.warmup_steps**-1.5)
+        lr = m.sqrt(1/self.d_model) * min(min_arg1, min_arg2)
+        self.trainer.lightning_optimizers[0].param_groups[0]['lr'] = lr
+        self.log("learning rate", lr)
 
 
     def clean_and_print_tokens(self, tokens, src_or_trg):
