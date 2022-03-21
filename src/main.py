@@ -115,11 +115,11 @@ class TransformerTrainer(pl.LightningModule):
         for idx in range(len(src)):
             reference = self.clean_and_print_tokens(trg[idx], str(SpecialTokens.TRG))
             output_prediction = self.clean_and_print_tokens(torch.argmax(logits[idx], dim=-1), str(SpecialTokens.TRG))
-            bleu_scores.append(self.metric(trg.split(), pred.split()).item())
+            bleu_scores.append(self.metric(reference.split(), output_prediction.split()).item())
             if idx % 250 == 0:
                 print(" SRC:\t", self.clean_and_print_tokens(src[idx], str(SpecialTokens.SRC)))
-                print(" TRG:\t", trg)
-                print("PRED:\t", pred)
+                print(" TRG:\t", reference)
+                print("PRED:\t", output_prediction)
                 print("-------")
         
         mean_bleu = statistics.mean(bleu_scores)
