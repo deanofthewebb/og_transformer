@@ -113,8 +113,8 @@ class TransformerTrainer(pl.LightningModule):
 
         bleu_scores = []
         for idx in range(len(src)):
-            trg = self.clean_and_print_tokens(trg[idx], str(SpecialTokens.TRG))
-            pred = self.clean_and_print_tokens(torch.argmax(logits[idx], dim=-1), str(SpecialTokens.TRG))
+            reference = self.clean_and_print_tokens(trg[idx], str(SpecialTokens.TRG))
+            output_prediction = self.clean_and_print_tokens(torch.argmax(logits[idx], dim=-1), str(SpecialTokens.TRG))
             bleu_scores.append(self.metric(trg.split(), pred.split()).item())
             if idx % 250 == 0:
                 print(" SRC:\t", self.clean_and_print_tokens(src[idx], str(SpecialTokens.SRC)))
